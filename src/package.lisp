@@ -20,12 +20,19 @@
    #:connection-port
    #:connection-state
    #:connection-channels
+   #:connection-tls-p
+   #:connection-username
+   #:connection-sasl-username
+   #:connection-sasl-password
+   #:connection-user-data
+   #:connection-cap-enabled
    
    ;; Connection options
    #:with-connection
    #:*default-port*
    #:*default-tls-port*
-   #:*default-quit-message*)
+   #:*default-quit-message*
+   #:*default-realname*)
   
   ;; IRC Commands
   (:export
@@ -135,8 +142,15 @@
    #:strip-formatting
    #:normalize-channel
    #:normalize-nick
+   #:nick-equal
    #:mask-matches-p
-   #:split-message)
+   #:split-message
+   #:format-irc-line
+   #:format-tags
+   #:ip-string-to-integer
+   #:ip-integer-to-string
+   #:format-datetime
+   #:run-hooks)
   
   ;; Conditions
   (:export
