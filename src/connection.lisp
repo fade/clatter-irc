@@ -83,7 +83,11 @@
    ;; User data slot for application use
    (user-data :initarg :user-data :accessor connection-user-data
               :initform nil
-              :documentation "Arbitrary user data"))
+              :documentation "Arbitrary user data")
+   ;; Channel class for subclassing
+   (channel-class :initarg :channel-class :accessor connection-channel-class
+                  :initform 'channel
+                  :documentation "Class to use when creating channel objects (for subclassing)"))
   (:documentation "IRC connection"))
 
 (defmethod print-object ((conn connection) stream)
@@ -106,7 +110,9 @@
                                       sasl-username
                                       sasl-password
                                       (reconnect t)
-                                      user-data)
+                                      user-data
+                                      (connection-class 'connection)
+                                      (channel-class 'channel))
   "Create a new IRC connection object.
    
    SERVER - IRC server hostname
@@ -120,8 +126,10 @@
    SASL-USERNAME - SASL username (default: nick)
    SASL-PASSWORD - SASL password for SASL PLAIN
    RECONNECT - Enable automatic reconnection (default: t)
-   USER-DATA - Arbitrary user data"
-  (make-instance 'connection
+   USER-DATA - Arbitrary user data
+   CONNECTION-CLASS - Class to instantiate (default: 'connection, for subclassing)
+   CHANNEL-CLASS - Class for channel objects (default: 'channel, for subclassing)"
+  (make-instance connection-class
                  :server server
                  :port (or port (if tls *default-tls-port* *default-port*))
                  :nick nick
@@ -133,7 +141,8 @@
                  :sasl-username (or sasl-username nick)
                  :sasl-password sasl-password
                  :reconnect reconnect
-                 :user-data user-data))
+                 :user-data user-data
+                 :channel-class channel-class))
 
 ;;; Low-level I/O
 
@@ -254,9 +263,10 @@
         (connection-cap-negotiating conn) nil
         (connection-sasl-state conn) nil)
   
-  ;; Clear batches and labels
+  ;; Clear batches, labels, and channels
   (clrhash (connection-active-batches conn))
   (clrhash (connection-pending-labels conn))
+  (clrhash (connection-channels conn))
   
   (run-hooks conn 'on-disconnect conn)
   (irc-log :info "Disconnected from ~A" (connection-server conn)))
