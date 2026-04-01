@@ -27,6 +27,16 @@
    #:connection-user-data
    #:connection-cap-enabled
    
+   ;; Connection internals (for subclassing)
+   #:connection-stream
+   #:connection-socket
+   #:connection-read-thread
+   #:connection-write-lock
+   #:connection-last-activity
+   #:connection-reconnect-enabled
+   #:connection-reconnect-attempts
+   #:connection-hooks
+   
    ;; Connection options
    #:with-connection
    #:*default-port*
@@ -132,6 +142,43 @@
    #:on-dcc-send
    #:*dcc-download-directory*
    #:*dcc-port-range*)
+  
+  ;; Channel tracking
+  (:export
+   #:channel
+   #:make-channel
+   #:channel-name
+   #:channel-topic
+   #:channel-topic-who
+   #:channel-topic-time
+   #:channel-users
+   #:channel-modes
+   #:channel-created
+   #:channel-joined-at
+   ;; Channel user
+   #:channel-user
+   #:make-channel-user
+   #:user-nick
+   #:user-prefix-modes
+   #:user-account
+   #:user-host
+   ;; Channel operations
+   #:channel-add-user
+   #:channel-remove-user
+   #:channel-find-user
+   #:channel-rename-user
+   #:channel-user-count
+   #:channel-user-list
+   #:channel-user-nicks-with-prefix
+   #:parse-nick-with-prefix
+   ;; Connection-level channel management
+   #:find-channel
+   #:ensure-channel
+   #:remove-channel
+   #:joined-channels
+   #:joined-channel-p
+   ;; Connection channel-class option
+   #:connection-channel-class)
   
   ;; Utilities
   (:export

@@ -29,6 +29,7 @@ Features include:
                              (:file "utility")
                              (:file "protocol")
                              (:file "connection")
+                             (:file "channel")
                              (:file "commands")
                              (:file "handlers")
                              (:file "dcc"))))
@@ -38,6 +39,7 @@ Features include:
   :depends-on ("clatter-irc" "fiveam")
   :components ((:module "test"
                 :components ((:file "test-protocol")
-                             (:file "test-connection"))))
+                             (:file "test-connection")
+                             (:file "test-channel"))))
   :perform (test-op (o s)
              (uiop:symbol-call :fiveam :run! :clatter-irc-tests)))

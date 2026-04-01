@@ -144,13 +144,28 @@
 ;;; Channel events
 
 (defun handle-join (conn msg)
-  "Handle JOIN message."
+  "Handle JOIN message.
+   With extended-join capability, params are: channel account :realname
+   Without: channel"
   (let* ((prefix (parse-prefix (message-prefix msg)))
          (nick (when prefix (prefix-nick prefix)))
-         (channel (first (message-params msg))))
-    ;; Track our own joins
-    (when (nick-equal nick (connection-nick conn))
-      (setf (gethash (normalize-channel channel) (connection-channels conn)) t))
+         (host (when prefix
+                 (let ((user (prefix-user prefix))
+                       (h (prefix-host prefix)))
+                   (when (and user h)
+                     (format nil "~A@~A" user h)))))
+         (params (message-params msg))
+         (channel (first params))
+         ;; extended-join provides account and realname as extra params
+         (account (second params))
+         (ch-obj (if (nick-equal nick (connection-nick conn))
+                     ;; Our own join: create channel object
+                     (ensure-channel conn channel)
+                     ;; Someone else joining: find existing channel
+                     (find-channel conn channel))))
+    ;; Add user to channel's user list
+    (when ch-obj
+      (channel-add-user ch-obj nick :account account :host host))
     (run-hooks conn 'on-join conn msg nick channel)))
 
 (defun handle-part (conn msg)
@@ -160,9 +175,13 @@
          (params (message-params msg))
          (channel (first params))
          (reason (second params)))
-    ;; Track our own parts
-    (when (nick-equal nick (connection-nick conn))
-      (remhash (normalize-channel channel) (connection-channels conn)))
+    (if (nick-equal nick (connection-nick conn))
+        ;; Our own part: remove the whole channel
+        (remove-channel conn channel)
+        ;; Someone else parting: remove them from the channel's user list
+        (let ((ch-obj (find-channel conn channel)))
+          (when ch-obj
+            (channel-remove-user ch-obj nick))))
     (run-hooks conn 'on-part conn msg nick channel reason)))
 
 (defun handle-quit (conn msg)
@@ -170,6 +189,11 @@
   (let* ((prefix (parse-prefix (message-prefix msg)))
          (nick (when prefix (prefix-nick prefix)))
          (reason (first (message-params msg))))
+    ;; Remove user from all channels they were in
+    (maphash (lambda (key ch-obj)
+               (declare (ignore key))
+               (channel-remove-user ch-obj nick))
+             (connection-channels conn))
     (run-hooks conn 'on-quit conn msg nick reason)))
 
 (defun handle-kick (conn msg)
@@ -180,9 +204,13 @@
          (channel (first params))
          (kicked (second params))
          (reason (third params)))
-    ;; Track if we were kicked
-    (when (nick-equal kicked (connection-nick conn))
-      (remhash (normalize-channel channel) (connection-channels conn)))
+    (if (nick-equal kicked (connection-nick conn))
+        ;; We were kicked: remove the whole channel
+        (remove-channel conn channel)
+        ;; Someone else kicked: remove them from user list
+        (let ((ch-obj (find-channel conn channel)))
+          (when ch-obj
+            (channel-remove-user ch-obj kicked))))
     (run-hooks conn 'on-kick conn msg kicker channel kicked reason)))
 
 (defun handle-nick-change (conn msg)
@@ -193,6 +221,11 @@
     ;; Track our own nick changes
     (when (nick-equal old-nick (connection-nick conn))
       (setf (connection-nick conn) new-nick))
+    ;; Rename user in all channels they're in
+    (maphash (lambda (key ch-obj)
+               (declare (ignore key))
+               (channel-rename-user ch-obj old-nick new-nick))
+             (connection-channels conn))
     (run-hooks conn 'on-nick conn msg old-nick new-nick)))
 
 (defun handle-mode (conn msg)
@@ -208,7 +241,12 @@
          (setter (when prefix (prefix-nick prefix)))
          (params (message-params msg))
          (channel (first params))
-         (topic (second params)))
+         (topic (second params))
+         (ch-obj (find-channel conn channel)))
+    (when ch-obj
+      (setf (channel-topic ch-obj) topic
+            (channel-topic-who ch-obj) setter
+            (channel-topic-time ch-obj) (get-universal-time)))
     (run-hooks conn 'on-topic conn msg setter channel topic)))
 
 (defun handle-invite (conn msg)
@@ -232,7 +270,72 @@
        (setf (connection-state conn) :connected
              (connection-reconnect-attempts conn) 0)
        (run-hooks conn 'on-connect conn))
-      
+
+      ;; RPL_CHANNELMODEIS - channel modes
+      (324
+       (let* ((params (message-params msg))
+              (channel (second params))
+              (mode-string (third params))
+              (ch-obj (find-channel conn channel)))
+         (when (and ch-obj mode-string)
+           (setf (channel-modes ch-obj)
+                 (coerce (remove #\+ mode-string) 'list)))))
+
+      ;; RPL_CREATIONTIME - channel creation time
+      (329
+       (let* ((params (message-params msg))
+              (channel (second params))
+              (time-str (third params))
+              (ch-obj (find-channel conn channel)))
+         (when (and ch-obj time-str)
+           (handler-case
+               (setf (channel-created ch-obj) (parse-integer time-str))
+             (error () nil)))))
+
+      ;; RPL_TOPIC - channel topic text
+      (332
+       (let* ((params (message-params msg))
+              (channel (second params))
+              (topic (third params))
+              (ch-obj (find-channel conn channel)))
+         (when ch-obj
+           (setf (channel-topic ch-obj) topic))))
+
+      ;; RPL_TOPICWHOTIME - who set the topic and when
+      (333
+       (let* ((params (message-params msg))
+              (channel (second params))
+              (who (third params))
+              (time-str (fourth params))
+              (ch-obj (find-channel conn channel)))
+         (when ch-obj
+           (setf (channel-topic-who ch-obj) who)
+           (when time-str
+             (handler-case
+                 (setf (channel-topic-time ch-obj) (parse-integer time-str))
+               (error () nil))))))
+
+      ;; RPL_NAMREPLY - channel user list
+      (353
+       (let* ((params (message-params msg))
+              ;; params: mynick = #channel :nick1 @nick2 +nick3
+              (channel (third params))
+              (names-str (fourth params))
+              (ch-obj (find-channel conn channel)))
+         (when (and ch-obj names-str)
+           (dolist (raw-name (split-string names-str #\Space))
+             (when (> (length raw-name) 0)
+               ;; Handle userhost-in-names: @nick!user@host
+               (let* ((bang-pos (position #\! raw-name))
+                      (name-part (if bang-pos (subseq raw-name 0 bang-pos) raw-name))
+                      (host-part (when bang-pos (subseq raw-name (1+ bang-pos)))))
+                 (multiple-value-bind (nick prefix)
+                     (parse-nick-with-prefix name-part)
+                   (when (> (length nick) 0)
+                     (channel-add-user ch-obj nick
+                                       :prefix-modes prefix
+                                       :host host-part)))))))))
+
       ;; Nick in use
       (433
        (let ((new-nick (concatenate 'string (connection-nick conn) "_")))
