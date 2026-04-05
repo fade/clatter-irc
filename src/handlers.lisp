@@ -367,10 +367,13 @@
          (caps-string (car (last params))))
     (cond
       ;; LS - server listing available capabilities
-      ;; Multiline: params contain "*" before the caps string when more
-      ;; lines follow.  Accumulate until the final line (no "*"), then act.
+      ;; Multiline: when more lines follow, a "*" appears as the third
+      ;; param (between "LS" and the caps string), giving 4+ params.
+      ;; The first param is always the target ("*" during registration),
+      ;; so we cannot simply search for "*" in the param list.
       ((string-equal subcommand "LS")
-       (let* ((continuation-p (member "*" params :test #'string=))
+       (let* ((continuation-p (and (>= (length params) 4)
+                                   (string= (third params) "*")))
               (caps (split-string caps-string #\Space)))
          (setf (connection-cap-ls-accumulator conn)
                (append (connection-cap-ls-accumulator conn) caps))
