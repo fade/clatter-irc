@@ -367,12 +367,22 @@
          (caps-string (car (last params))))
     (cond
       ;; LS - server listing available capabilities
+      ;; Multiline: params contain "*" before the caps string when more
+      ;; lines follow.  Accumulate until the final line (no "*"), then act.
       ((string-equal subcommand "LS")
-       (let* ((available (split-string caps-string #\Space))
-              (wanted (intersection *wanted-capabilities* available :test #'string-equal)))
-         (if wanted
-             (send-raw conn (format nil "CAP REQ :~{~A~^ ~}" wanted))
-             (cap-end conn))))
+       (let* ((continuation-p (member "*" params :test #'string=))
+              (caps (split-string caps-string #\Space)))
+         (setf (connection-cap-ls-accumulator conn)
+               (append (connection-cap-ls-accumulator conn) caps))
+         (unless continuation-p
+           ;; Final line — all capabilities received.
+           (let* ((available (connection-cap-ls-accumulator conn))
+                  (wanted (intersection *wanted-capabilities* available
+                                        :test #'string-equal)))
+             (setf (connection-cap-ls-accumulator conn) nil)
+             (if wanted
+                 (send-raw conn (format nil "CAP REQ :~{~A~^ ~}" wanted))
+                 (cap-end conn))))))
       
       ;; ACK - server acknowledged our request
       ((string-equal subcommand "ACK")
