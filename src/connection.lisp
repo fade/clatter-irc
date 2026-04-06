@@ -59,6 +59,8 @@
    (write-lock :initform (bt:make-lock "irc-write") :accessor connection-write-lock)
    ;; IRCv3 state
    (cap-negotiating :initform nil :accessor connection-cap-negotiating)
+   (cap-ls-accumulator :initform nil :accessor connection-cap-ls-accumulator
+                       :documentation "Accumulates capabilities across multiline CAP LS responses")
    (cap-enabled :initform nil :accessor connection-cap-enabled
                 :documentation "List of enabled capabilities")
    (sasl-state :initform nil :accessor connection-sasl-state)
@@ -260,6 +262,7 @@
         (connection-socket conn) nil
         (connection-state conn) :disconnected
         (connection-cap-enabled conn) nil
+        (connection-cap-ls-accumulator conn) nil
         (connection-cap-negotiating conn) nil
         (connection-sasl-state conn) nil)
   
