@@ -381,7 +381,7 @@
            ;; Final line — all capabilities received.
            (let* ((available (connection-cap-ls-accumulator conn))
                   (wanted (intersection *wanted-capabilities* available
-                                        :test #'string-equal)))
+                                        :test #'cap-equal-p)))
              (setf (connection-cap-ls-accumulator conn) nil)
              (if wanted
                  (send-raw conn (format nil "CAP REQ :~{~A~^ ~}" wanted))
@@ -414,7 +414,7 @@
       ;; NEW - server advertising new capabilities (cap-notify)
       ((string-equal subcommand "NEW")
        (let* ((available (split-string caps-string #\Space))
-              (wanted (intersection *wanted-capabilities* available :test #'string-equal)))
+              (wanted (intersection *wanted-capabilities* available :test #'cap-equal-p)))
          (when wanted
            (send-raw conn (format nil "CAP REQ :~{~A~^ ~}" wanted)))))
       
