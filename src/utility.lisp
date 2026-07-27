@@ -101,6 +101,12 @@
                             chunk-end))))
         (nreverse result))))
 
+(defun cap-equal-p (wanted available)
+  "Compare a wanted capability with an advertised capability that may
+   contain a value. Capability values may be specified by the server
+   in CAP LS and CAP NEW replies."
+  (string-equal wanted (first (split-string available #\=))))
+
 ;;; Time utilities
 
 (defun format-timestamp (&optional (time (get-universal-time)))
