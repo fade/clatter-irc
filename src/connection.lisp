@@ -41,7 +41,7 @@
         :initform nil
         :documentation "Use TLS/SSL")
    (tls-verify :initarg :tls-verify :accessor connection-tls-verify-p
-               :initform nil
+               :initform t
                :documentation "Verify TLS certificate hostname")
    (client-cert :initarg :client-cert :accessor connection-client-cert
                 :initform nil
@@ -221,14 +221,14 @@
                            raw-stream
                            :hostname server
                            :certificate client-cert
-                           :verify (connection-tls-verify-p conn)
+                           :verify (if (connection-tls-verify-p conn) :required nil)
                            :key client-cert
                            :external-format :utf-8)
                           ;; TLS without client certificate
                           (cl+ssl:make-ssl-client-stream
                            raw-stream
                            :hostname server
-                           :verify (connection-tls-verify-p conn)
+                           :verify (if (connection-tls-verify-p conn) :required nil)
                            :external-format :utf-8))
                       ;; Plain connection
                       (flexi-streams:make-flexi-stream

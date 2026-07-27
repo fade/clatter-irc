@@ -30,6 +30,7 @@
     (is (string= "testnick" (connection-nick conn)))
     (is (= 6697 (connection-port conn)))  ; TLS default
     (is (connection-tls-p conn))
+    (is (connection-tls-verify-p conn))
     (is (string= "testnick" (connection-username conn)))
     (is (eq :disconnected (connection-state conn)))))
 
