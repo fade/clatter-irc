@@ -40,6 +40,9 @@
    (tls :initarg :tls :accessor connection-tls-p
         :initform nil
         :documentation "Use TLS/SSL")
+   (tls-verify :initarg :tls-verify :accessor connection-tls-verify-p
+               :initform t
+               :documentation "Verify TLS certificate hostname")
    (client-cert :initarg :client-cert :accessor connection-client-cert
                 :initform nil
                 :documentation "Path to client certificate for SASL EXTERNAL")
@@ -105,6 +108,7 @@
 (defun make-connection (server nick &key
                                       (port nil)
                                       (tls t)
+                                      (tls-verify t)
                                       username
                                       realname
                                       password
@@ -121,6 +125,7 @@
    NICK - Desired nickname
    PORT - Server port (default: 6697 for TLS, 6667 for plain)
    TLS - Use TLS/SSL (default: t)
+   TLS-VERIFY - Verify TLS certificate hostname (default: t)
    USERNAME - Username for USER command (default: nick)
    REALNAME - Realname for USER command
    PASSWORD - Server password
@@ -136,6 +141,7 @@
                  :port (or port (if tls *default-tls-port* *default-port*))
                  :nick nick
                  :tls tls
+                 :tls-verify tls-verify
                  :username (or username nick)
                  :realname (or realname *default-realname*)
                  :password password
@@ -215,12 +221,14 @@
                            raw-stream
                            :hostname server
                            :certificate client-cert
+                           :verify (if (connection-tls-verify-p conn) :required nil)
                            :key client-cert
                            :external-format :utf-8)
                           ;; TLS without client certificate
                           (cl+ssl:make-ssl-client-stream
                            raw-stream
                            :hostname server
+                           :verify (if (connection-tls-verify-p conn) :required nil)
                            :external-format :utf-8))
                       ;; Plain connection
                       (flexi-streams:make-flexi-stream
