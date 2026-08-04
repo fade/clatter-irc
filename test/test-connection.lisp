@@ -4,7 +4,8 @@
   (:use #:cl #:fiveam)
   (:import-from #:clatter-irc
                 #:make-connection #:connection-server #:connection-nick
-                #:connection-port #:connection-tls-p #:connection-username
+                #:connection-port #:connection-tls-p #:connection-tls-verify-p
+                #:connection-username
                 #:connection-sasl-username #:connection-sasl-password
                 #:connection-user-data #:connection-state #:connectedp
                 #:connection-cap-enabled #:connection-channels

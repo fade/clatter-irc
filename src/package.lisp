@@ -21,6 +21,7 @@
    #:connection-state
    #:connection-channels
    #:connection-tls-p
+   #:connection-tls-verify-p
    #:connection-username
    #:connection-sasl-username
    #:connection-sasl-password
