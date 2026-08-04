@@ -35,6 +35,19 @@ Features include:
                              (:file "dcc"))))
   :in-order-to ((test-op (test-op "clatter-irc/test"))))
 
+;;; Protocol-only system: the IRC wire-format codec (parsing, formatting,
+;;; sanitization) with no socket, threading, TLS, or DCC layers.  Edge
+;;; adapters and protocol consumers depend on this instead of the full
+;;; clatter-irc system so a resident socket-connect is not loaded into
+;;; the image.  Only cl-ppcre is needed (for mask-matches-p in utility.lisp).
+(defsystem "clatter-irc/protocol"
+  :description "IRC protocol parsing and formatting (no connection layer)"
+  :depends-on ("cl-ppcre")
+  :components ((:module "src"
+                :components ((:file "package")
+                             (:file "utility")
+                             (:file "protocol")))))
+
 (defsystem "clatter-irc/test"
   :depends-on ("clatter-irc" "fiveam")
   :components ((:module "test"
